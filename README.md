@@ -13,3 +13,6 @@ IndiSpeak is a machine learning project aimed at classifying audio embeddings in
 - Employs GridSearchCV for hyperparameter tuning to optimize model performance.
 
 # Demo
+<a target="_blank" href="https://colab.research.google.com/github/sonalgan/IndiSpeak/blob/main/indispeak_demo.ipynb">
+  <img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/>
+</a>
