@@ -1,0 +1,11 @@
+numpy==1.21.6
+resampy==0.2.2
+tensorflow==2.8.2
+tf_slim==1.1.0
+six
+soundfile
+sounddevice
+ipywidgets
+pyaudio
+pydub
+torchaudio
