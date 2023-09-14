@@ -16,3 +16,6 @@ IndiSpeak is a machine learning project aimed at classifying audio embeddings in
 <a target="_blank" href="https://colab.research.google.com/github/sonalgan/IndiSpeak/blob/main/indispeak_demo.ipynb">
   <img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/>
 </a>
+
+# Presentation
+You can find the final presentation slides [here](IndiSpeak_FINAL.pdf).
