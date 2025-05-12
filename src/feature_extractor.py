@@ -13,7 +13,19 @@ import warnings
 warnings.filterwarnings("ignore")
 
 class FeatureExtractor:
+    """
+    Extracts audio features using a pretrained VGGish model.
+    Supports label encoding and generates training/testing data batches with padded embeddings.
+    """
     def __init__(self, checkpoint_path, pca_params_path, run_name):
+        """
+        Initializes the feature extractor with paths to model and PCA parameters.
+        
+        Args:
+            checkpoint_path (str): Path to the VGGish model checkpoint.
+            pca_params_path (str): Path to the PCA parameters for postprocessing.
+            run_name (str): Identifier for current run (used for saving test files).
+        """
         self.checkpoint_path = checkpoint_path
         self.pca_params_path = pca_params_path
         self.sess = tf.Session(graph=tf.Graph())
@@ -24,6 +36,10 @@ class FeatureExtractor:
         self.run_name = run_name
 
     def load_model(self):
+        """
+        Loads the pretrained VGGish model into the TensorFlow session
+        and initializes the postprocessing PCA module.
+        """
         tf.disable_v2_behavior()
         tf.reset_default_graph()
         with self.sess.graph.as_default():
@@ -34,6 +50,15 @@ class FeatureExtractor:
             self.pproc = vggish_postprocess.Postprocessor(self.pca_params_path)
 
     def extract_features(self, audio_file):
+        """
+        Converts an audio file into postprocessed VGGish embeddings.
+        
+        Args:
+            audio_file (str): Path to the audio file.
+        
+        Returns:
+            np.ndarray or None: Postprocessed embedding array or None if error occurs.
+        """
         try:
             examples = vggish_input.wavfile_to_examples(audio_file)
             [embedding_batch] = self.sess.run([self.embedding_tensor], feed_dict={self.features_tensor: examples})
@@ -44,16 +69,45 @@ class FeatureExtractor:
             return None
 
     def fit_label_encoder(self, labels):
+        """
+        Fits the internal LabelEncoder on a list of labels.
+        
+        Args:
+            labels (List[str]): Ground truth labels.
+        """
         self.label_encoder.fit(labels)
 
     def encode_labels(self, labels):
+         """
+        Transforms a list of labels into encoded integers.
+        
+        Args:
+            labels (List[str]): Ground truth labels.
+        
+        Returns:
+            np.ndarray: Encoded label integers.
+        """
         encoded_labels = self.label_encoder.transform(labels)
         return encoded_labels
 
     def audio_embeddings_generator(self, audio_folder, total_samples, samples_per_folder=100, training_size=0.8, mode="train"):
+        """
+        Generates audio embeddings and labels for training or testing.
+        
+        Args:
+            audio_folder (str): Path to directory with class-named subfolders containing audio files.
+            total_samples (int): Total number of samples to use.
+            samples_per_folder (int): Number of audio samples per subfolder (class).
+            training_size (float): Proportion of data to use for training.
+            mode (str): 'train' or 'test' mode.
+
+        Yields:
+            Tuple[np.ndarray, np.ndarray]: A tuple of (padded_embeddings, encoded_labels).
+        """
         audio_files = []
         labels = []
 
+        # Iterate through each class folder and sample audio files
         for folder_name in os.listdir(audio_folder):
             folder_path = os.path.join(audio_folder, folder_name)
             if os.path.isdir(folder_path):
@@ -65,18 +119,22 @@ class FeatureExtractor:
                 label = self.extract_label_from_audio_file(audio_files_in_folder[0])  # Extract label from the first file
                 labels.extend([label for _ in range(len(audio_files_in_folder))])
                 labels.extend([self.extract_label_from_audio_file(file) for file in audio_files_in_folder])
-
+                
+        # Shuffle data
         indices = np.random.permutation(len(audio_files))
         audio_files = np.array(audio_files)[indices]
         labels = np.array(labels)[indices]
         num_train_samples = int(total_samples * training_size)
+        # Define test data save paths
         testfiles_path = f"misc/testfiles_{self.run_name}.pkl"
         testlabels_path = f"misc/testlabels_{self.run_name}.pkl"
 
         if mode == "train":
+            # Split into training and testing
             train_files = audio_files[:num_train_samples]
             train_labels = labels[:num_train_samples]
 
+            # Save test data for reproducibility
             joblib.dump(audio_files[num_train_samples:], testfiles_path)  # Save testing files
             joblib.dump(labels[num_train_samples:], testlabels_path)  # Save testing labels
 
@@ -90,7 +148,7 @@ class FeatureExtractor:
                     train_embeddings.append(embedding)
                     train_labels_batch.append(label)
                     max_length = max(max_length, embedding.shape[0])
-
+            # Pad embeddings to uniform length
             padded_train_embeddings = []
             for embedding in train_embeddings:
                 padding_length = max_length - embedding.shape[0]
@@ -103,6 +161,7 @@ class FeatureExtractor:
             yield train_embeddings, train_labels_batch
 
         elif mode == "test":
+            # Load saved test files if available
             if os.path.isfile(testfiles_path) and os.path.isfile(testlabels_path):
                 test_files = joblib.load(testfiles_path)
                 test_labels = joblib.load(testlabels_path)
@@ -137,5 +196,14 @@ class FeatureExtractor:
 
     @staticmethod
     def extract_label_from_audio_file(audio_file):
+        """
+        Extracts label from the directory name of the audio file path.
+        
+        Args:
+            audio_file (str): Full path to an audio file.
+        
+        Returns:
+            str: Label corresponding to the parent directory.
+        """
         label = os.path.basename(os.path.dirname(audio_file))
         return label
